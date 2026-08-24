@@ -1,7 +1,9 @@
-# snake
-Snake game with raylib
+# Snake game with raylib
 
 ## Build
+### Requirements
+- odin compiler
+
 ```bash
 odin build . -o:speed
 ```
