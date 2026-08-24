@@ -1,14 +1,13 @@
 # Snake game with raylib
 
-## Build
-### Requirements
-- odin compiler
+## Building from source
+You'll need the [https://odin-lang.org/](odin compiler)
 
 ```bash
 odin build . -o:speed
 ```
 
-## Run
+## Running
 ```bash
 $ ./snake <width> <height>
 ```
