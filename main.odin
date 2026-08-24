@@ -18,9 +18,6 @@ colorInnerLocStraight, colorBorderLocStraight: i32
 
 target: rl.RenderTexture2D
 
-world_width := 10
-world_height := 10
-
 main :: proc() {
     when !ODIN_DEBUG {
         rl.SetTraceLogLevel(.NONE)
