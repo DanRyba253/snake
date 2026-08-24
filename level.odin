@@ -173,7 +173,7 @@ level_add_new_random_apple :: proc(level: ^Level) -> bool {
 level_draw :: proc(level: Level, x0, y0: f32) {
     rl.DrawRectangleV(
         {x0, y0},
-        {(f32(level.width) + 0.4) * level.tile_size, (f32(level.width) + 0.4) * level.tile_size},
+        {(f32(level.width) + 0.4) * level.tile_size, (f32(level.height) + 0.4) * level.tile_size},
         {28, 24, 18, 255}
     )
     x0 := x0 + level.tile_size  * 0.2
