@@ -1,5 +1,6 @@
 package snake
 
+import "vendor:raylib/rlgl"
 import "core:math"
 import rl "vendor:raylib"
 
@@ -28,6 +29,7 @@ snake_draw :: proc(snake: Snake, x0, y0: f32, tile_size: f32) {
 
     rl.DrawCircleV({head_x, head_y}, (snake.head_radius + snake.outline_thickness) * tile_size, snake.outline_color)
 
+    rl.BeginShaderMode(shader)
     draw_bend(
         x0, y0,
         snake.head_tile.x, snake.head_tile.y,
@@ -41,7 +43,6 @@ snake_draw :: proc(snake: Snake, x0, y0: f32, tile_size: f32) {
         snake.body_color,
         snake.outline_color,
     )
-
 
     i := 0
     orientation := opposite_orientation(snake.orientation)
@@ -89,11 +90,15 @@ snake_draw :: proc(snake: Snake, x0, y0: f32, tile_size: f32) {
             angle_a += tail_direction
             angle_b += tail_direction
 
+            rl.EndShaderMode()
+
             rl.DrawCircleSector(
                 {tail_x, tail_y},
                 (snake.tail_radius + snake.outline_thickness) * 7/8 * tile_size,
                 angle_a, angle_b, 1, snake.outline_color
             )
+
+            rl.BeginShaderMode(shader)
         }
 
         draw_bend(
@@ -119,7 +124,7 @@ snake_draw :: proc(snake: Snake, x0, y0: f32, tile_size: f32) {
                 f32(dir),
                 used_length
             )
-            
+            rl.EndShaderMode()
             rl.DrawCircleV({tail_x, tail_y}, (snake.tail_radius * 4/5) * tile_size, snake.body_color)
         }
 
@@ -182,7 +187,8 @@ draw_bend :: proc(
     color_inner: rl.Color,
     color_border: rl.Color,
 ) {
-    theta := math.PI / 2 * (1 - rotation / 2) 
+    flip_x := rotation < 0
+    theta := math.PI / 2 * (1 - abs(rotation) / 2) 
     re := end_radius
     rb := base_radius
 
@@ -199,53 +205,63 @@ draw_bend :: proc(
         cell_rotation = 180
     }
 
-    borderThickness := outline_thickness
-    colorInner := [3]f32{f32(color_inner.r), f32(color_inner.g), f32(color_inner.b)} / 255
-    colorBorder := [3]f32{f32(color_border.r), f32(color_border.g), f32(color_border.b)} / 255
+    changed_uniforms := false
 
+    borderThickness_new := outline_thickness
+    colorInner_new := [3]f32{f32(color_inner.r), f32(color_inner.g), f32(color_inner.b)} / 255
+    colorBorder_new := [3]f32{f32(color_border.r), f32(color_border.g), f32(color_border.b)} / 255
+    x_new, cutoff_new, factor_new: f32
+    base: f32
+    
     if abs(theta - math.PI / 2) > 0.05 {
-        x := -1.0 / 2 * math.tan(theta)
-        cutoff := 2 * abs(math.PI / 2 - theta) * length
-        factor := (re - rb) / cutoff
-
-        rl.SetShaderValue(bend_shader, xLoc, &x, .FLOAT)
-        rl.SetShaderValue(bend_shader, baseLoc, &rb, .FLOAT)
-        rl.SetShaderValue(bend_shader, factorLoc, &factor, .FLOAT)
-        rl.SetShaderValue(bend_shader, cutoffLoc, &cutoff, .FLOAT)
-        rl.SetShaderValue(bend_shader, borderThicknessLocBend, &borderThickness, .FLOAT)
-        rl.SetShaderValue(bend_shader, colorInnerLocBend, &colorInner, .VEC3)
-        rl.SetShaderValue(bend_shader, colorBorderLocBend, &colorBorder, .VEC3)
-
-        rl.BeginShaderMode(bend_shader)
-        rl.DrawTexturePro(
-            target.texture,
-            {0, 0, f32(target.texture.width), f32(target.texture.height)},
-            {dest_x, dest_y, tile_size, tile_size},
-            {tile_size / 2, tile_size / 2}, cell_rotation, rl.WHITE
-        )
-        rl.EndShaderMode()
+        x_new = -1.0 / 2 * math.tan(theta)
+        cutoff_new = 4 * abs(math.PI / 2 - theta) / math.PI * length
+        factor_new = (re - rb) / cutoff_new
+        base = rb
     } else {
-        tw := f32(target.texture.width)
-        baseRadius := rb
-        endRadius := re
-        maxY := length
-
-        rl.SetShaderValue(straight_shader, baseRadiusLoc, &baseRadius, .FLOAT)
-        rl.SetShaderValue(straight_shader, endRadiusLoc, &endRadius, .FLOAT)
-        rl.SetShaderValue(straight_shader, maxYLoc, &maxY, .FLOAT)
-        rl.SetShaderValue(straight_shader, borderThicknessLocStraight, &borderThickness, .FLOAT)
-        rl.SetShaderValue(straight_shader, colorInnerLocStraight, &colorInner, .VEC3)
-        rl.SetShaderValue(straight_shader, colorBorderLocStraight, &colorBorder, .VEC3)
-
-        rl.BeginShaderMode(straight_shader)
-        rl.DrawTexturePro(
-            target.texture,
-            {0, 0, tw, tw},
-            {dest_x, dest_y, tile_size, tile_size},
-            {tile_size / 2, tile_size / 2}, cell_rotation, rl.WHITE
-        )
-        rl.EndShaderMode()
+        x_new = x
+        cutoff_new = length
+        factor_new = (re - rb) / cutoff_new
+        base = -rb
     }
+
+    if borderThickness_new != borderThickness ||
+       colorInner_new != colorInner ||
+       colorBorder_new != colorBorder ||
+       abs(x_new - x) > 0.001 ||
+       abs(cutoff_new - cutoff) > 0.001 ||
+       abs(factor_new - factor) > 0.001 {
+        changed_uniforms = true
+    }
+
+    borderThickness = borderThickness_new
+    colorInner = colorInner_new
+    colorBorder = colorBorder_new
+    x = x_new
+    cutoff = cutoff_new
+    factor = factor_new
+
+    if changed_uniforms {
+        rlgl.DrawRenderBatchActive()
+        rl.SetShaderValue(shader, xLoc, &x_new, .FLOAT)
+        rl.SetShaderValue(shader, factorLoc, &factor_new, .FLOAT)
+        rl.SetShaderValue(shader, cutoffLoc, &cutoff_new, .FLOAT)
+        rl.SetShaderValue(shader, borderThicknessLoc, &borderThickness_new, .FLOAT)
+        rl.SetShaderValue(shader, colorInnerLoc, &colorInner_new, .VEC3)
+        rl.SetShaderValue(shader, colorBorderLoc, &colorBorder_new, .VEC3)
+    }
+
+    src := rl.Rectangle{0, 0, f32(target.texture.width), f32(target.texture.height)}
+    if flip_x {
+        src = rl.Rectangle{0, 0, -f32(target.texture.height), f32(target.texture.height)}
+    }
+
+    rl.DrawTexturePro(
+        target.texture,
+        src,
+        {dest_x, dest_y, tile_size, tile_size},
+        {tile_size / 2, tile_size / 2}, cell_rotation, transmute(rl.Color)base
+    )
 }
 
 opposite_orientation :: proc(ori: Orientation) -> Orientation {

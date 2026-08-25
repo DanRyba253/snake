@@ -6,15 +6,17 @@ import "core:fmt"
 import rl "vendor:raylib"
 
 
-bend_shader_code := cstring(#load("bend_shader.fs"))
-bend_shader: rl.Shader
-xLoc, baseLoc, factorLoc, cutoffLoc, borderThicknessLocBend,
-colorInnerLocBend, colorBorderLocBend: i32
+shader_code := cstring(#load("shader.fs"))
+shader: rl.Shader
+xLoc, factorLoc, cutoffLoc, borderThicknessLoc,
+colorInnerLoc, colorBorderLoc: i32
 
-straight_shader_code := cstring(#load("straight_shader.fs"))
-straight_shader: rl.Shader
-baseRadiusLoc, endRadiusLoc, maxYLoc, borderThicknessLocStraight,
-colorInnerLocStraight, colorBorderLocStraight: i32
+borderThickness: f32
+colorInner: [3]f32
+colorBorder: [3]f32
+x: f32
+factor: f32
+cutoff: f32
 
 target: rl.RenderTexture2D
 
@@ -53,24 +55,22 @@ main :: proc() {
     rl.SetWindowSize(screen_width, screen_height)
     rl.SetTargetFPS(60)
 
-    bend_shader = rl.LoadShaderFromMemory(nil, bend_shader_code)
-    defer rl.UnloadShader(bend_shader)
-    xLoc = rl.GetShaderLocation(bend_shader, "x")
-    baseLoc = rl.GetShaderLocation(bend_shader, "base")
-    factorLoc = rl.GetShaderLocation(bend_shader, "factor")
-    cutoffLoc = rl.GetShaderLocation(bend_shader, "cutoff")
-    borderThicknessLocBend = rl.GetShaderLocation(bend_shader, "borderThickness")
-    colorInnerLocBend = rl.GetShaderLocation(bend_shader, "colorInner")
-    colorBorderLocBend = rl.GetShaderLocation(bend_shader, "colorBorder")
+    shader = rl.LoadShaderFromMemory(nil, shader_code)
+    defer rl.UnloadShader(shader)
 
-    straight_shader = rl.LoadShaderFromMemory(nil, straight_shader_code)
-    defer rl.UnloadShader(straight_shader)
-    baseRadiusLoc = rl.GetShaderLocation(straight_shader, "baseRadius")
-    endRadiusLoc = rl.GetShaderLocation(straight_shader, "endRadius")
-    maxYLoc = rl.GetShaderLocation(straight_shader, "maxY")
-    borderThicknessLocStraight = rl.GetShaderLocation(straight_shader, "borderThickness")
-    colorInnerLocStraight = rl.GetShaderLocation(straight_shader, "colorInner")
-    colorBorderLocStraight = rl.GetShaderLocation(straight_shader, "colorBorder")
+    xLoc = rl.GetShaderLocation(shader, "x")
+    factorLoc = rl.GetShaderLocation(shader, "factor")
+    cutoffLoc = rl.GetShaderLocation(shader, "cutoff")
+    borderThicknessLoc = rl.GetShaderLocation(shader, "borderThickness")
+    colorInnerLoc = rl.GetShaderLocation(shader, "colorInner")
+    colorBorderLoc = rl.GetShaderLocation(shader, "colorBorder")
+
+    rl.SetShaderValue(shader, xLoc, &x, .FLOAT)
+    rl.SetShaderValue(shader, factorLoc, &factor, .FLOAT)
+    rl.SetShaderValue(shader, cutoffLoc, &cutoff, .FLOAT)
+    rl.SetShaderValue(shader, borderThicknessLoc, &borderThickness, .FLOAT)
+    rl.SetShaderValue(shader, colorInnerLoc, &colorInner, .VEC3)
+    rl.SetShaderValue(shader, colorBorderLoc, &colorBorder, .VEC3)
 
     target = rl.LoadRenderTexture(500, 500)
     defer rl.UnloadRenderTexture(target)
